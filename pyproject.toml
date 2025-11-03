@@ -1,7 +1,7 @@
 [project]
 name = "stackit_cost_monitoring"
 version = "0.1.0"
-description = ""
+description = "Nagios plugin to monitor cloud costs in the StackIT cloud."
 authors = [
     {name = "Harald Wilhelmi",email = "harald.wilhelmi@uni-heidelberg.de"}
 ]
