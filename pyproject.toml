@@ -7,14 +7,13 @@ authors = [
 ]
 license = {text = "GNU Public License v3"}
 readme = "README.md"
-requires-python = ">=3.9,<4.0"
+requires-python = ">=3.10,<4.0"
 dependencies = [
     "pydantic",
-    "pyjwt (>=2.10.1,<3.0.0)"
+    "pyjwt (>=2.10.1,<3.0.0)",
+    "requests (>=2.32.5,<3.0.0)",
+    "cryptography (>=46.0.3,<47.0.0)"
 ]
-
-[tool.poetry.group.dev.dependencies]
-openapi-generator-cli = "^7.14.0"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

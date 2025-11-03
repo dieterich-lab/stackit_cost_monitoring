@@ -49,12 +49,7 @@ assign the required permissions:
 
 ## Installation
 
-The script uses Python 3 — most likely any version newer than 3.9 will work.
-It uses Pydantic and pyjwt. So it can be set up in various ways:
-
-### Option 1: virtual environment & pip
-
-Set up a virtual environment in any way you like, activate it and use pip to install it, e.g.:
+The script uses Python 3 — most likely any version newer than 3.10 will work:
 
 ```shell
 python -m venv /usr/local/lib/venvs/stackit_monitoring
