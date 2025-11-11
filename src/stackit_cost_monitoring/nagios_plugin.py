@@ -54,28 +54,24 @@ class NagiosReporter:
                 raise Exception(f"CostApi returned unexpected date: {report_data.timePeriod.start}")
 
     def do_report(self) -> NoReturn:
-        total_cost = self._estimate_24h_cost()
+        total_cost = max(self.today_cost, self.yesterday_cost)
         if total_cost >= self.args.critical:
             exit_code = NagiosExitCodes.CRITICAL
-            message = f"24h cost {total_cost:.2f} EUR >= {self.args.critical} EUR"
+            message = f"Daily costs {total_cost:.2f} EUR >= {self.args.critical} EUR"
         elif total_cost >= self.args.warning:
             exit_code = NagiosExitCodes.WARNING
-            message = f"WARNING: 24h cost {total_cost:.2f} EUR >= {self.args.warning} EUR"
+            message = f"Daily costs {total_cost:.2f} EUR >= {self.args.warning} EUR"
         else:
             exit_code = NagiosExitCodes.OK
-            message = f"24h cost {total_cost:.2f} EUR"
-        return self._finish(exit_code, message, total_cost)
+            message = f"Daily costs {total_cost:.2f} EUR"
+        return self._finish(exit_code, message)
 
-    def _estimate_24h_cost(self) -> float:
-        now = datetime.now(timezone.utc)
-        midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        seconds_today = (now - midnight).total_seconds()
-        seconds_yesterday = SECONDS_PER_DAY - seconds_today
-        estimated_24h_cost = self.today_cost + self.yesterday_cost * seconds_yesterday / SECONDS_PER_DAY
-        return estimated_24h_cost
-
-    def _finish(self, status: NagiosExitCodes, message: str, total_cost: float) -> NoReturn:
-        perf_data = f"cost_24h={total_cost:.2f};{self.args.warning};{self.args.critical};0;"
+    def _finish(self, status: NagiosExitCodes, message: str) -> NoReturn:
+        perf_data_items = [
+            f"yesterday_cost={self.yesterday_cost:.2f};;;",
+            f"today_cost={self.today_cost:.2f};;;",
+        ]
+        perf_data = ' '.join(perf_data_items)
         print(f"{status.name}: {message} | {perf_data}")
         return exit(status.value)
 
@@ -94,8 +90,8 @@ def main():
 
 def get_arguments() -> ParsedArguments:
     parser = argparse.ArgumentParser(
-        description='Nagios plugin to monitor StackIT costs. The costs are estimated'
-        ' by adding the costs of today and the weighted costs of yesterday.',
+        description='Nagios plugin to monitor StackIT costs. The higher value '
+        'of the cost of the present day (always 0?) and yesterday is used.',
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument(
@@ -123,7 +119,8 @@ def get_arguments() -> ParsedArguments:
     parser.add_argument(
         '--sa-key-json',
         type=Path,
-        default=DEFAULT_SA_KEY_JSON
+        default=DEFAULT_SA_KEY_JSON,
+        help=f"Path to StackIT credentials in JSON format (default: {DEFAULT_SA_KEY_JSON})"
     )
 
     parsed_arguments = ParsedArguments(**parser.parse_args().__dict__)

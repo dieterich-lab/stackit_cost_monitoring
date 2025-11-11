@@ -25,13 +25,18 @@ implemented by using the StackIT Cost API.
 
 ## General Approach
 
-This example assumes that a system is available that can genrate
+**NagioS Plugin:** This example assumes that a system is available that can genrate
 alarms and distribute them via suitable channels such as email,
 chat systems, or SMS. Many such systems can either use Nagios plugins
 (aka Nagios checks) directly (CheckMK, Icinga2) or at least supply
 instructions on how to integrate or adapt them. So this example just
 implements a Nagios plugin based on the StackIT Cost API and explains
 how to configure it.
+
+**Yesterday's Costs:** It seems that most (or all?) costs are only reported
+with a daily granularity. So an alarm is given if yesterday's costs exceed the
+given threshold. If today's costs are higher, that number would be used instead,
+but so far this case has not been reported.
 
 ## Prerequisites
 
@@ -75,10 +80,10 @@ variable to include the `cost_monitoring/src/stackit_cost_monitoring directory`.
 ## Usage
 
 ```
-$ check_stackit_costs --help
+$ poetry run check_stackit_costs --help
 usage: check_stackit_costs [-h] --customer-account-id CUSTOMER_ACCOUNT_ID --project-id PROJECT_ID [-w WARNING] [-c CRITICAL] [--sa-key-json SA_KEY_JSON]
 
-Nagios plugin to monitor StackIT costs. The costs are estimated by adding the costs of today and the weighted costs of yesterday.
+Nagios plugin to monitor StackIT costs. The higher value of the cost of the present day (always 0?) and yesterday is used.
 
 options:
   -h, --help            show this help message and exit
@@ -91,6 +96,7 @@ options:
   -c, --critical CRITICAL
                         Critical threshold for 24h cost in EUR (default: 50.00)
   --sa-key-json SA_KEY_JSON
+                        Path to StackIT credentials in JSON format (default: /home/wilhelmh/.stackit/sa-key.json)
 ```
 
 ## Remarks
