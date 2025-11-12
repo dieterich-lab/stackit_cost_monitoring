@@ -41,20 +41,36 @@ class NagiosReporter:
         self.today = datetime.now(timezone.utc).date()
         self.yesterday = self.today - timedelta(days=1)
         self.today_cost = 0.0
+        self.today_discounted_cost = 0.0
         self.yesterday_cost = 0.0
+        self.yesterday_discounted_cost = 0.0
 
     def book_cost_item(self, cost_item: CostApiItemWithDetails):
         for report_data in cost_item.reportData:
-            # ToDo: Should we add discounted costs?
             if report_data.timePeriod.start == self.today:
                 self.today_cost += report_data.charge / CENTS_PER_EURO
+                self.today_discounted_cost += report_data.discount / CENTS_PER_EURO
             elif report_data.timePeriod.start == self.yesterday:
                 self.yesterday_cost += report_data.charge / CENTS_PER_EURO
+                self.yesterday_discounted_cost += report_data.discount / CENTS_PER_EURO
             else:
                 raise Exception(f"CostApi returned unexpected date: {report_data.timePeriod.start}")
 
     def do_report(self) -> NoReturn:
-        total_cost = max(self.today_cost, self.yesterday_cost)
+        today_cost = self.today_cost
+        yesterday_cost = self.yesterday_cost
+        """"
+            StackIt's answer to ticket SSD-13595:
+            
+                The totalCharge value in the API response already includes all granted discounts.
+                
+            To detect pathological effects we should add the discounted costs to get an
+            alarm before all our free budget has been used. By default we add the discounts.
+        """
+        if not self.args.skip_discount:
+            today_cost += self.today_discounted_cost
+            yesterday_cost += self.yesterday_discounted_cost
+        total_cost = max(today_cost, yesterday_cost)
         if total_cost >= self.args.critical:
             exit_code = NagiosExitCodes.CRITICAL
             message = f"Daily costs {total_cost:.2f} EUR >= {self.args.critical} EUR"
@@ -69,7 +85,9 @@ class NagiosReporter:
     def _finish(self, status: NagiosExitCodes, message: str) -> NoReturn:
         perf_data_items = [
             f"yesterday_cost={self.yesterday_cost:.2f};;;",
+            f"yesterday_discounted_cost={self.yesterday_discounted_cost:.2f};;;",
             f"today_cost={self.today_cost:.2f};;;",
+            f"today_discounted_cost={self.today_discounted_cost:.2f};;;",
         ]
         perf_data = ' '.join(perf_data_items)
         print(f"{status.name}: {message} | {perf_data}")
@@ -122,6 +140,11 @@ def get_arguments() -> ParsedArguments:
         default=DEFAULT_SA_KEY_JSON,
         help=f"Path to StackIT credentials in JSON format (default: {DEFAULT_SA_KEY_JSON})"
     )
+    parser.add_argument(
+        '--skip-discount',
+        action='store_true',
+        help='Skip discounted costs in calculation.'
+    )
 
     parsed_arguments = ParsedArguments(**parser.parse_args().__dict__)
     if parsed_arguments.warning < 0.0:
@@ -134,7 +157,7 @@ def get_arguments() -> ParsedArguments:
 def get_cost(args) -> CostApiItemWithDetails:
     auth = Auth(args.sa_key_json)
     cost_api = CostApi(auth)
-    today = datetime.now(timezone.utc).date()
+    today = datetime.now(timezone.utc).date()  # StackIT, ticket SSD-13595: UTC is used
     yesterday = today - timedelta(days=1)
 
     result = cost_api.get_project_costs(

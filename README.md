@@ -25,8 +25,8 @@ implemented by using the StackIT Cost API.
 
 ## General Approach
 
-**NagioS Plugin:** This example assumes that a system is available that can genrate
-alarms and distribute them via suitable channels such as email,
+**Nagios Plugin:** This example assumes that a system is available that can
+genrate alarms and distribute them via suitable channels such as email,
 chat systems, or SMS. Many such systems can either use Nagios plugins
 (aka Nagios checks) directly (CheckMK, Icinga2) or at least supply
 instructions on how to integrate or adapt them. So this example just
@@ -35,8 +35,9 @@ how to configure it.
 
 **Yesterday's Costs:** It seems that most (or all?) costs are only reported
 with a daily granularity. So an alarm is given if yesterday's costs exceed the
-given threshold. If today's costs are higher, that number would be used instead,
-but so far this case has not been reported.
+given threshold. If today's costs are higher, that number would be used instead.
+So far today's costs were always reported as 0. The UTC timezone is used for
+date boundaries.
 
 ## Prerequisites
 
@@ -65,10 +66,8 @@ pip install .
 The source code is not needed after installation. To get exactly the same versions as used during development,
 use poetry instead of pip.
 
-### Option 2: OS packages for the dependencies
-
-If you prefer to manage the dependencies via your OS package manager,
-you can install them e.g. on Debian like this:
+**OS packages for the dependencies:** If you prefer to manage the dependencies
+via your OS package manager, you can install them e.g. on Debian like this:
 
 ```shell
 apt-get install python3-jwt python3-pydantic
@@ -112,3 +111,9 @@ can monitor one project at a time.
 
 * https://docs.api.stackit.cloud/documentation/cost/version/v3
 * https://github.com/stackitcloud/stackit-sdk-python
+
+## Acknowledgements
+
+This tool was created by and with resources of University Hospital Heidelberg,
+Klaus Tschira Institute for Computational Cardiology. StackIt GmbH supported
+it by supplying the StackIT API and helping with some of the dirty details.
