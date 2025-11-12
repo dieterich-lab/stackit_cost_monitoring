@@ -84,11 +84,13 @@ class NagiosReporter:
         return self._finish(exit_code, message)
 
     def _finish(self, status: NagiosExitCodes, message: str) -> NoReturn:
+        warning = self.args.warning
+        critical = self.args.critical
         perf_data_items = [
-            f"yesterday_cost={self.yesterday_cost:.2f};;;",
-            f"yesterday_discounted_cost={self.yesterday_discounted_cost:.2f};;;",
-            f"today_cost={self.today_cost:.2f};;;",
-            f"today_discounted_cost={self.today_discounted_cost:.2f};;;",
+            f"yesterday_cost={self.yesterday_cost:.2f};{warning:.2f};{critical:.2f};0",
+            f"yesterday_discounted_cost={self.yesterday_discounted_cost:.2f};{warning:.2f};{critical:.2f};0",
+            f"today_cost={self.today_cost:.2f};{warning:.2f};{critical:.2f};0",
+            f"today_discounted_cost={self.today_discounted_cost:.2f};{warning:.2f};{critical:.2f};0",
         ]
         perf_data = ' '.join(perf_data_items)
         print(f"{status.name}: {message} | {perf_data}")
