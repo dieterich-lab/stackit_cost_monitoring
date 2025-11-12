@@ -33,6 +33,7 @@ class ParsedArguments(BaseModel):
     warning: float
     critical: float
     sa_key_json: Path
+    skip_discounts: bool
 
 
 class NagiosReporter:
@@ -67,7 +68,7 @@ class NagiosReporter:
             To detect pathological effects we should add the discounted costs to get an
             alarm before all our free budget has been used. By default we add the discounts.
         """
-        if not self.args.skip_discount:
+        if not self.args.skip_discounts:
             today_cost += self.today_discounted_cost
             yesterday_cost += self.yesterday_discounted_cost
         total_cost = max(today_cost, yesterday_cost)
@@ -141,7 +142,7 @@ def get_arguments() -> ParsedArguments:
         help=f"Path to StackIT credentials in JSON format (default: {DEFAULT_SA_KEY_JSON})"
     )
     parser.add_argument(
-        '--skip-discount',
+        '--skip-discounts',
         action='store_true',
         help='Skip discounted costs in calculation.'
     )
