@@ -1,6 +1,6 @@
 [project]
 name = "stackit_cost_monitoring"
-version = "0.1.0"
+version = "0.2.0"
 description = "Nagios plugin to monitor cloud costs in the StackIT cloud."
 authors = [
     {name = "Harald Wilhelmi",email = "harald.wilhelmi@uni-heidelberg.de"}
@@ -22,3 +22,8 @@ build-backend = "poetry.core.masonry.api"
 
 [project.scripts]
 check_stackit_costs = "stackit_cost_monitoring.nagios_plugin:main"
+
+[project.urls]
+Homepage = "https://github.com/dieterich-lab/stackit_cost_monitoring"
+Issues = "https://github.com/dieterich-lab/stackit_cost_monitoring/issues"
+

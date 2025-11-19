@@ -55,26 +55,14 @@ assign the required permissions:
 
 ## Installation
 
-The script uses Python 3 — most likely any version newer than 3.10 will work:
+The script uses Python 3 — most likely any version newer than 3.10 will work.
+Best use a separate virtual environment:
 
 ```shell
-python -m venv /usr/local/lib/venvs/stackit_monitoring
+python3 -m venv /usr/local/lib/venvs/stackit_monitoring
 . /usr/local/lib/venvs/stackit_monitoring/bin/activate
-pip install .
+pip install stackit_cost_monitoring
 ```
-
-The source code is not needed after installation. To get exactly the same versions as used during development,
-use poetry instead of pip.
-
-**OS packages for the dependencies:** If you prefer to manage the dependencies
-via your OS package manager, you can install them e.g. on Debian like this:
-
-```shell
-apt-get install python3-jwt python3-pydantic
-```
-
-To run the script without an installation, you may have to set the `PYTHONPATH` environment
-variable to include the `cost_monitoring/src/stackit_cost_monitoring directory`.
 
 ## Usage
 
