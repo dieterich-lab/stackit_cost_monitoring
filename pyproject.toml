@@ -6,6 +6,7 @@ authors = [
     {name = "Harald Wilhelmi",email = "harald.wilhelmi@uni-heidelberg.de"}
 ]
 license = {text = "GNU Public License v3"}
+license-files = ["LICEN[CS]E*"]
 readme = "README.md"
 requires-python = ">=3.10,<4.0"
 dependencies = [
