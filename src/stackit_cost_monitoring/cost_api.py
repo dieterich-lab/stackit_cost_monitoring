@@ -94,6 +94,18 @@ class CostApi:
             raise CostApiException(f"GET {url} failed: {e}")
         data = response.json()
         if granularity == CostApiGranularity.NONE:
-            return CostApiItem(**data)
+            try:
+                return CostApiItem(**data)
+            except Exception as e:
+                raise CostApiException(
+                    f"Failed to parse response as CostApiItem: {e}\n"
+                    f"Response: {response.text}"
+                )
         else:
-            return CostApiItemWithDetails(**data)
+            try:
+                return CostApiItemWithDetails(**data)
+            except Exception as e:
+                raise CostApiException(
+                    f"Failed to parse response as CostApiItemWithDetails: {e}\n"
+                    f"Response: {response.text}"
+                )
