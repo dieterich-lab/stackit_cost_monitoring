@@ -64,6 +64,10 @@ python3 -m venv /usr/local/lib/venvs/stackit_monitoring
 pip install stackit_cost_monitoring
 ```
 
+To use the plugin with the Icinga example below, one will have to link
+/usr/local/lib/venvs/stackit_monitoring/bin/check_stackit_costs to
+/usr/lib/nagios/plugins.
+
 ## Usage
 
 ```
@@ -83,8 +87,88 @@ options:
   -c, --critical CRITICAL
                         Critical threshold for 24h cost in EUR (default: 50.00)
   --sa-key-json SA_KEY_JSON
-                        Path to StackIT credentials in JSON format (default: /home/wilhelmh/.stackit/sa-key.json)
+                        Path to StackIT credentials in JSON format (default: /home/.../.stackit/sa-key.json)
 ```
+
+## Icinga Example
+
+Command definition:
+
+```
+object CheckCommand "stackit_costs" {
+  command = [ PluginDir + "/check_stackit_costs" ]
+  arguments = {
+    "--customer-account-id" = {
+      description = "ID of the StackIt Cloud account to monitor (required)"
+      value = "$stackit_account_id$"
+    }
+    "--project-id" = {
+      description = "ID of the StackIt Cloud project to monitor (required)"
+      value = "$stackit_project_id$"
+    }
+    "--sa-key-json" = {
+      description = "JSON file with StackIt service account data to use (required)"
+      value = "$stackit_credential_path$"
+    }
+    "-w" = {
+      description = "Warning threshold for daily costs in EUR"
+      value = "$stackit_warning_eur$"
+    }
+    "-c" = {
+      description = "Critical threshold for daily costs in EUR"
+      value = "$stackit_critical_eur$"
+    }
+  }
+  vars.stackit_warning_eur = 2.0
+  vars.stackit_critical_eur = 10.0
+}
+```
+
+The actual checks may look like this:
+
+```
+object TimePeriod "StackItCostApiPeriod" {
+/*
+   Seems that StackIt Cost API is not able to deliver proper results
+   for a few minutes after midnight UTC (=1:00 CET). So we exclude
+   here a few minutes.
+   Unfortunately Icinga does not document if/how they support timezones
+   in the spot we would need it. So we use a interval, which both works
+   with summer/winter time.
+*/
+  display_name = "StackIt Cost API service period"
+  ranges = {
+    "monday"    = "00:00-01:00,02:10-24:00"
+    "tuesday"   = "00:00-01:00,02:10-24:00"
+    "wednesday" = "00:00-01:00,02:10-24:00"
+    "thursday"  = "00:00-01:00,02:10-24:00"
+    "friday"    = "00:00-01:00,02:10-24:00"
+    "saturday"  = "00:00-01:00,02:10-24:00"
+    "sunday"    = "00:00-01:00,02:10-24:00"
+  }
+}
+
+apply Service "COST-test" {
+  import "generic-service"
+
+  check_command = "stackit_costs"
+  check_period = "StackItCostApiPeriod"
+  vars += {
+    stackit_account_id = "..."
+    stackit_project_id = "..."
+    stackit_credential_path = "/var/lib/nagios/.stackit/cost-monitoring-test.json"
+    stackit_warning_eur = "1.0"
+    stackit_critical_eur = "10.0"
+  }
+  assign where host.name == "..."
+}
+```
+
+## Limitations
+
+It seems that the StackIT Cost API will return incomplete responses
+for granularity 'day' for the few minutes after 00:00 UTC. To avoid
+false alarms, one may want to exclude this time period. 
 
 ## Remarks
 
