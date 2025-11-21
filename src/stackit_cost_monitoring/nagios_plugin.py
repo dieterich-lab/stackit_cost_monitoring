@@ -170,7 +170,7 @@ def get_cost(args) -> CostApiItemWithDetails:
         to_date=today,
         granularity=CostApiGranularity.DAILY,
         depth=CostApiDepth.PROJECT,
-        include_zero_costs=False,
+        include_zero_costs=True,
     )
 
     if not isinstance(result, CostApiItemWithDetails):

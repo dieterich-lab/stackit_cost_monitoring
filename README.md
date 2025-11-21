@@ -127,32 +127,10 @@ object CheckCommand "stackit_costs" {
 The actual checks may look like this:
 
 ```
-object TimePeriod "StackItCostApiPeriod" {
-/*
-   Seems that StackIt Cost API is not able to deliver proper results
-   for a few minutes after midnight UTC (=1:00 CET). So we exclude
-   here a few minutes.
-   Unfortunately Icinga does not document if/how they support timezones
-   in the spot we would need it. So we use a interval, which both works
-   with summer/winter time.
-*/
-  display_name = "StackIt Cost API service period"
-  ranges = {
-    "monday"    = "00:00-01:00,02:10-24:00"
-    "tuesday"   = "00:00-01:00,02:10-24:00"
-    "wednesday" = "00:00-01:00,02:10-24:00"
-    "thursday"  = "00:00-01:00,02:10-24:00"
-    "friday"    = "00:00-01:00,02:10-24:00"
-    "saturday"  = "00:00-01:00,02:10-24:00"
-    "sunday"    = "00:00-01:00,02:10-24:00"
-  }
-}
-
 apply Service "COST-test" {
   import "generic-service"
 
   check_command = "stackit_costs"
-  check_period = "StackItCostApiPeriod"
   vars += {
     stackit_account_id = "..."
     stackit_project_id = "..."
@@ -163,12 +141,6 @@ apply Service "COST-test" {
   assign where host.name == "..."
 }
 ```
-
-## Limitations
-
-It seems that the StackIT Cost API will return incomplete responses
-for granularity 'day' for the few minutes after 00:00 UTC. To avoid
-false alarms, one may want to exclude this time period. 
 
 ## Remarks
 
