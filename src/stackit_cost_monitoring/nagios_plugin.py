@@ -8,8 +8,7 @@ from typing import NoReturn
 
 from pydantic import BaseModel
 
-from stackit_cost_monitoring.cost_api import CostApi, CostApiGranularity, CostApiItemWithDetails, CostApiException, \
-    CostApiDepth
+from stackit_cost_monitoring.cost_api import CostApi, CostApiGranularity, CostApiException, CostApiDepth, CostApiItem
 from stackit_cost_monitoring.auth import Auth, AuthException
 
 SECONDS_PER_DAY = 24 * 3600
@@ -47,23 +46,31 @@ class NagiosReporter:
         self.yesterday_discounted_cost = 0.0
         self.total_cost = 0.0
         self.total_discounted_cost = 0.0
+        self.found_report_data = False
 
-    def book_cost_item(self, cost_item: CostApiItemWithDetails):
+    def book_cost_item(self, cost_item: CostApiItem):
         self.total_cost = cost_item.totalCharge / CENTS_PER_EURO
         self.total_discounted_cost = cost_item.totalDiscount / CENTS_PER_EURO
-        for report_data in cost_item.reportData:
-            if report_data.timePeriod.start == self.today:
-                self.today_cost += report_data.charge / CENTS_PER_EURO
-                self.today_discounted_cost += report_data.discount / CENTS_PER_EURO
-            elif report_data.timePeriod.start == self.yesterday:
-                self.yesterday_cost += report_data.charge / CENTS_PER_EURO
-                self.yesterday_discounted_cost += report_data.discount / CENTS_PER_EURO
-            else:
-                raise Exception(f"CostApi returned unexpected date: {report_data.timePeriod.start}")
+        if cost_item.reportData is not None:
+            self.found_report_data = True
+            for report_data in cost_item.reportData:
+                if report_data.timePeriod.start == self.today:
+                    self.today_cost += report_data.charge / CENTS_PER_EURO
+                    self.today_discounted_cost += report_data.discount / CENTS_PER_EURO
+                elif report_data.timePeriod.start == self.yesterday:
+                    self.yesterday_cost += report_data.charge / CENTS_PER_EURO
+                    self.yesterday_discounted_cost += report_data.discount / CENTS_PER_EURO
+                else:
+                    raise Exception(f"CostApi returned unexpected date: {report_data.timePeriod.start}")
 
     def do_report(self) -> NoReturn:
         today_cost = self.today_cost
-        yesterday_cost = self.yesterday_cost
+        # During the night some request may not contain the reportData array.
+        # In this case estimate the cost from the totalCharge value.
+        if self.found_report_data:
+            yesterday_cost = self.yesterday_cost
+        else:
+            yesterday_cost = self.total_cost
         """"
             StackIt's answer to ticket SSD-13595:
             
@@ -163,7 +170,7 @@ def get_arguments() -> ParsedArguments:
     return parsed_arguments
 
 
-def get_cost(args) -> CostApiItemWithDetails:
+def get_cost(args) -> CostApiItem:
     auth = Auth(args.sa_key_json)
     cost_api = CostApi(auth)
     today = datetime.now(timezone.utc).date()  # StackIT, ticket SSD-13595: UTC is used
@@ -179,8 +186,6 @@ def get_cost(args) -> CostApiItemWithDetails:
         include_zero_costs=True,
     )
 
-    if not isinstance(result, CostApiItemWithDetails):
-        raise Exception("CostAPI returned item without report data!")
     return result
 
 

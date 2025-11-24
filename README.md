@@ -149,7 +149,14 @@ StackIT Cost API. So we decided to manually code the API call.
 
 It seems that service accounts are always tied to a project. Using a user
 for monitoring seems unsuitable for security reasons. So this plugin only
-can monitor one project at a time. 
+can monitor one project at a time.
+
+**Unter investigation:**
+The official documentation claims that for a given granularity and
+depth='project' the response to Rest call will always contain the
+reportData array. However, there seems to be a short time period
+in the night, during which this data is missing. If this data is missing,
+the plugin will use total cost fields to estimate yesterday's costs.
 
 ## Resources
 

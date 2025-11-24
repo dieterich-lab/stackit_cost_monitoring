@@ -1,5 +1,6 @@
 from datetime import date
 from enum import Enum
+from typing import Optional
 
 import requests
 from pydantic import BaseModel
@@ -14,14 +15,6 @@ class CostApiException(Exception):
     pass
 
 
-class CostApiItem(BaseModel):
-    customerAccountId: str
-    projectId: str
-    projectName: str
-    totalCharge: float
-    totalDiscount: float
-
-
 class CostApiTimePeriod(BaseModel):
     end: date
     start: date
@@ -34,8 +27,13 @@ class CostApiDetails(BaseModel):
     timePeriod: CostApiTimePeriod
 
 
-class CostApiItemWithDetails(CostApiItem):
-    reportData: list[CostApiDetails]
+class CostApiItem(BaseModel):
+    customerAccountId: str
+    projectId: str
+    projectName: str
+    totalCharge: float
+    totalDiscount: float
+    reportData: Optional[list[CostApiDetails]] = None
 
 
 class CostApiDepth(Enum):
@@ -93,19 +91,10 @@ class CostApi:
         except Exception as e:
             raise CostApiException(f"GET {url} failed: {e}")
         data = response.json()
-        if granularity == CostApiGranularity.NONE:
-            try:
-                return CostApiItem(**data)
-            except Exception as e:
-                raise CostApiException(
-                    f"Failed to parse response as CostApiItem: {e}\n"
-                    f"Response: {response.text}"
-                )
-        else:
-            try:
-                return CostApiItemWithDetails(**data)
-            except Exception as e:
-                raise CostApiException(
-                    f"Failed to parse response as CostApiItemWithDetails: {e}\n"
-                    f"Response: {response.text}"
-                )
+        try:
+            return CostApiItem(**data)
+        except Exception as e:
+            raise CostApiException(
+                f"Failed to parse response as CostApiItem: {e}\n"
+                f"Response: {response.text}"
+            )
