@@ -45,8 +45,12 @@ class NagiosReporter:
         self.today_discounted_cost = 0.0
         self.yesterday_cost = 0.0
         self.yesterday_discounted_cost = 0.0
+        self.total_cost = 0.0
+        self.total_discounted_cost = 0.0
 
     def book_cost_item(self, cost_item: CostApiItemWithDetails):
+        self.total_cost = cost_item.totalCharge / CENTS_PER_EURO
+        self.total_discounted_cost = cost_item.totalDiscount / CENTS_PER_EURO
         for report_data in cost_item.reportData:
             if report_data.timePeriod.start == self.today:
                 self.today_cost += report_data.charge / CENTS_PER_EURO
@@ -91,6 +95,8 @@ class NagiosReporter:
             f"yesterday_discounted_cost={self.yesterday_discounted_cost:.2f};{warning:.2f};{critical:.2f};0",
             f"today_cost={self.today_cost:.2f};{warning:.2f};{critical:.2f};0",
             f"today_discounted_cost={self.today_discounted_cost:.2f};{warning:.2f};{critical:.2f};0",
+            f"total_cost={self.total_cost:.2f};{warning:.2f};{critical:.2f};0",
+            f"total_discounted_cost={self.total_discounted_cost:.2f};{warning:.2f};{critical:.2f};0",
         ]
         perf_data = ' '.join(perf_data_items)
         print(f"{status.name}: {message} | {perf_data}")
