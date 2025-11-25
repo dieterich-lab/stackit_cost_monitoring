@@ -97,11 +97,16 @@ class NagiosReporter:
     def _finish(self, status: NagiosExitCodes, message: str) -> NoReturn:
         warning = self.args.warning
         critical = self.args.critical
-        perf_data_items = [
-            f"yesterday_cost={self.yesterday_cost:.2f};{warning:.2f};{critical:.2f};0",
-            f"yesterday_discounted_cost={self.yesterday_discounted_cost:.2f};{warning:.2f};{critical:.2f};0",
-            f"today_cost={self.today_cost:.2f};{warning:.2f};{critical:.2f};0",
-            f"today_discounted_cost={self.today_discounted_cost:.2f};{warning:.2f};{critical:.2f};0",
+        if self.found_report_data:
+            perf_data_items = [
+                f"yesterday_cost={self.yesterday_cost:.2f};{warning:.2f};{critical:.2f};0",
+                f"yesterday_discounted_cost={self.yesterday_discounted_cost:.2f};{warning:.2f};{critical:.2f};0",
+                f"today_cost={self.today_cost:.2f};{warning:.2f};{critical:.2f};0",
+                f"today_discounted_cost={self.today_discounted_cost:.2f};{warning:.2f};{critical:.2f};0"
+            ]
+        else:
+            perf_data_items = []
+        perf_data_items += [
             f"total_cost={self.total_cost:.2f};{warning:.2f};{critical:.2f};0",
             f"total_discounted_cost={self.total_discounted_cost:.2f};{warning:.2f};{critical:.2f};0",
         ]
