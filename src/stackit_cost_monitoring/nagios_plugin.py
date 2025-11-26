@@ -33,6 +33,7 @@ class ParsedArguments(BaseModel):
     critical: float
     sa_key_json: Path
     skip_discounts: bool
+    api_log_file: Path
 
 
 class NagiosReporter:
@@ -166,6 +167,12 @@ def get_arguments() -> ParsedArguments:
         action='store_true',
         help='Skip discounted costs in calculation.'
     )
+    parser.add_argument(
+        '--api-log-file',
+        type=Path,
+        required=False,
+        help='Optional path to file where the API requests and responses will be logged.'
+    )
 
     parsed_arguments = ParsedArguments(**parser.parse_args().__dict__)
     if parsed_arguments.warning < 0.0:
@@ -177,21 +184,28 @@ def get_arguments() -> ParsedArguments:
 
 def get_cost(args) -> CostApiItem:
     auth = Auth(args.sa_key_json)
-    cost_api = CostApi(auth)
-    today = datetime.now(timezone.utc).date()  # StackIT, ticket SSD-13595: UTC is used
-    yesterday = today - timedelta(days=1)
+    api_log = None
+    try:
+        if args.api_log_file is not None:
+            api_log = open(args.api_log_file, 'a')
+        cost_api = CostApi(auth, api_log=api_log)
+        today = datetime.now(timezone.utc).date()  # StackIT, ticket SSD-13595: UTC is used
+        yesterday = today - timedelta(days=1)
 
-    result = cost_api.get_project_costs(
-        args.customer_account_id,
-        args.project_id,
-        from_date=yesterday,
-        to_date=today,
-        granularity=CostApiGranularity.DAILY,
-        depth=CostApiDepth.PROJECT,
-        include_zero_costs=True,
-    )
+        result = cost_api.get_project_costs(
+            args.customer_account_id,
+            args.project_id,
+            from_date=yesterday,
+            to_date=today,
+            granularity=CostApiGranularity.DAILY,
+            depth=CostApiDepth.PROJECT,
+            include_zero_costs=True,
+        )
 
-    return result
+        return result
+    finally:
+        if api_log is not None:
+            api_log.close()
 
 
 if __name__ == '__main__':

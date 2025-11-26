@@ -71,8 +71,8 @@ To use the plugin with the Icinga example below, one will have to link
 ## Usage
 
 ```
-$ poetry run check_stackit_costs --help
-usage: check_stackit_costs [-h] --customer-account-id CUSTOMER_ACCOUNT_ID --project-id PROJECT_ID [-w WARNING] [-c CRITICAL] [--sa-key-json SA_KEY_JSON]
+$ check_stackit_costs --help
+usage: check_stackit_costs [-h] --customer-account-id CUSTOMER_ACCOUNT_ID --project-id PROJECT_ID [-w WARNING] [-c CRITICAL] [--sa-key-json SA_KEY_JSON] [--skip-discounts] [--api-log-file API_LOG_FILE]
 
 Nagios plugin to monitor StackIT costs. The higher value of the cost of the present day (always 0?) and yesterday is used.
 
@@ -87,7 +87,10 @@ options:
   -c, --critical CRITICAL
                         Critical threshold for 24h cost in EUR (default: 50.00)
   --sa-key-json SA_KEY_JSON
-                        Path to StackIT credentials in JSON format (default: /home/.../.stackit/sa-key.json)
+                        Path to StackIT credentials in JSON format (default: /home/wilhelmh/.stackit/sa-key.json)
+  --skip-discounts      Skip discounted costs in calculation.
+  --api-log-file API_LOG_FILE
+                        Optional path to file where the API requests and responses will be logged.
 ```
 
 ## Icinga Example
@@ -117,6 +120,10 @@ object CheckCommand "stackit_costs" {
     "-c" = {
       description = "Critical threshold for daily costs in EUR"
       value = "$stackit_critical_eur$"
+    }
+    "--api-log-file" = {
+      description = "Path to file where the API requests and responses will be logged"
+      value = "$stackit_api_log_file$"
     }
   }
   vars.stackit_warning_eur = 2.0

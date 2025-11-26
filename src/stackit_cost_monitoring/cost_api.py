@@ -1,6 +1,7 @@
-from datetime import date
+from datetime import date, UTC, datetime, timezone
 from enum import Enum
-from typing import Optional
+from time import localtime
+from typing import Optional, TextIO
 
 import requests
 from pydantic import BaseModel
@@ -51,8 +52,9 @@ class CostApiGranularity(Enum):
 
 
 class CostApi:
-    def __init__(self, auth: Auth):
+    def __init__(self, auth: Auth, api_log: Optional[TextIO] = None):
         self._auth = auth
+        self._api_log = api_log
 
     def get_project_costs(
             self,
@@ -78,6 +80,7 @@ class CostApi:
             'includeZeroCosts': include_zero_costs,
         }
         bearer_token = self._auth.get_bearer_token()
+        self._log(f"Request GET {url} {params}\n")
         try:
             response = requests.get(
                 url,
@@ -87,8 +90,10 @@ class CostApi:
                     'Content-Type': 'application/json'
                 }
             )
+            self._log(f"Response {response.status_code} {response.text}\n")
             response.raise_for_status()
         except Exception as e:
+            self._log(f"Error {e}\n")
             raise CostApiException(f"GET {url} failed: {e}")
         data = response.json()
         try:
@@ -98,3 +103,9 @@ class CostApi:
                 f"Failed to parse response as CostApiItem: {e}\n"
                 f"Response: {response.text}"
             )
+
+    def _log(self, message: str):
+        if self._api_log is None:
+            return
+        now = datetime.now().astimezone().isoformat()
+        self._api_log.write(f"{now} {message}\n")
