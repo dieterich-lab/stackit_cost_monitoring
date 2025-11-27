@@ -33,11 +33,10 @@ instructions on how to integrate or adapt them. So this example just
 implements a Nagios plugin based on the StackIT Cost API and explains
 how to configure it.
 
-**Yesterday's Costs:** It seems that most (or all?) costs are only reported
-with a daily granularity. So an alarm is given if yesterday's costs exceed the
-given threshold. If today's costs are higher, that number would be used instead.
-So far today's costs were always reported as 0. The UTC timezone is used for
-date boundaries.
+**Yesterday's Costs:** It seems that costs are only reported with a daily
+granularity. Also, during the night the last day's cost may not be available.
+So the costs for the last two days are requested via the API, and the latest
+data available is used. For data boundaries UTC time is used.
 
 ## Prerequisites
 
@@ -131,12 +130,14 @@ object CheckCommand "stackit_costs" {
 }
 ```
 
-The actual checks may look like this:
+It makes no sense to check the costs every minute, as the data is only updated daily.
+To recover form errors easier, we check hourly:
 
 ```
 apply Service "COST-test" {
   import "generic-service"
-
+  check_interval = 1h   
+  retry_interval = 1h
   check_command = "stackit_costs"
   vars += {
     stackit_account_id = "..."
@@ -145,7 +146,7 @@ apply Service "COST-test" {
     stackit_warning_eur = "1.0"
     stackit_critical_eur = "10.0"
   }
-  assign where host.name == "..."
+  assign where host.name == "..."   # Does not really matter ...
 }
 ```
 
@@ -157,13 +158,6 @@ StackIT Cost API. So we decided to manually code the API call.
 It seems that service accounts are always tied to a project. Using a user
 for monitoring seems unsuitable for security reasons. So this plugin only
 can monitor one project at a time.
-
-**Unter investigation:**
-The official documentation claims that for a given granularity and
-depth='project' the response to Rest call will always contain the
-reportData array. However, there seems to be a short time period
-in the night, during which this data is missing. If this data is missing,
-the plugin will use total cost fields to estimate yesterday's costs.
 
 ## Resources
 

@@ -4,7 +4,7 @@ from pathlib import Path
 from sys import exit
 import argparse
 from datetime import datetime, timedelta, timezone
-from typing import NoReturn
+from typing import NoReturn, Optional
 
 from pydantic import BaseModel
 
@@ -33,45 +33,30 @@ class ParsedArguments(BaseModel):
     critical: float
     sa_key_json: Path
     skip_discounts: bool
-    api_log_file: Path
+    api_log_file: Optional[Path]
 
 
 class NagiosReporter:
     def __init__(self, args: ParsedArguments):
         self.args = args
-        self.today = datetime.now(timezone.utc).date()
-        self.yesterday = self.today - timedelta(days=1)
-        self.today_cost = 0.0
-        self.today_discounted_cost = 0.0
-        self.yesterday_cost = 0.0
-        self.yesterday_discounted_cost = 0.0
-        self.total_cost = 0.0
-        self.total_discounted_cost = 0.0
-        self.found_report_data = False
+        self._report_date = None
+        self._cost = None
+        self._discounted_cost = None
 
     def book_cost_item(self, cost_item: CostApiItem):
-        self.total_cost = cost_item.totalCharge / CENTS_PER_EURO
-        self.total_discounted_cost = cost_item.totalDiscount / CENTS_PER_EURO
-        if cost_item.reportData is not None:
-            self.found_report_data = True
-            for report_data in cost_item.reportData:
-                if report_data.timePeriod.start == self.today:
-                    self.today_cost += report_data.charge / CENTS_PER_EURO
-                    self.today_discounted_cost += report_data.discount / CENTS_PER_EURO
-                elif report_data.timePeriod.start == self.yesterday:
-                    self.yesterday_cost += report_data.charge / CENTS_PER_EURO
-                    self.yesterday_discounted_cost += report_data.discount / CENTS_PER_EURO
-                else:
-                    raise Exception(f"CostApi returned unexpected date: {report_data.timePeriod.start}")
+        if cost_item.reportData is None:
+            raise Exception(f"CostApi returned no reportData!")
+        if len(cost_item.reportData) == 0:
+            raise Exception(f"CostApi returned empty reportData!")
+        for report_data in cost_item.reportData:
+            if self._report_date is not None and report_data.timePeriod.start < self._report_date:
+                continue
+            self._report_date = report_data.timePeriod.start
+            self._cost = report_data.charge / CENTS_PER_EURO
+            self._discounted_cost = report_data.discount / CENTS_PER_EURO
 
     def do_report(self) -> NoReturn:
-        today_cost = self.today_cost
-        # During the night some request may not contain the reportData array.
-        # In this case estimate the cost from the totalCharge value.
-        if self.found_report_data:
-            yesterday_cost = self.yesterday_cost
-        else:
-            yesterday_cost = self.total_cost
+        cost = self._cost
         """"
             StackIt's answer to ticket SSD-13595:
             
@@ -81,36 +66,31 @@ class NagiosReporter:
             alarm before all our free budget has been used. By default we add the discounts.
         """
         if not self.args.skip_discounts:
-            today_cost += self.today_discounted_cost
-            yesterday_cost += self.yesterday_discounted_cost
-        total_cost = max(today_cost, yesterday_cost)
-        if total_cost >= self.args.critical:
+            cost += self._discounted_cost
+        report_date_str = self._report_date.strftime('%Y-%m-%d')
+
+        if cost >= self.args.critical:
             exit_code = NagiosExitCodes.CRITICAL
-            message = f"Daily costs {total_cost:.2f} EUR >= {self.args.critical} EUR"
-        elif total_cost >= self.args.warning:
+            message = f"Daily costs {cost:.2f} EUR >= {self.args.critical} EUR for {report_date_str}"
+        elif cost >= self.args.warning:
             exit_code = NagiosExitCodes.WARNING
-            message = f"Daily costs {total_cost:.2f} EUR >= {self.args.warning} EUR"
+            message = f"Daily costs {cost:.2f} EUR >= {self.args.warning} EUR for {report_date_str}"
         else:
             exit_code = NagiosExitCodes.OK
-            message = f"Daily costs {total_cost:.2f} EUR"
+            message = f"Daily costs {cost:.2f} EUR for {report_date_str}"
+
         return self._finish(exit_code, message)
 
     def _finish(self, status: NagiosExitCodes, message: str) -> NoReturn:
         warning = self.args.warning
         critical = self.args.critical
-        if self.found_report_data:
+        if self._cost is not None:
             perf_data_items = [
-                f"yesterday_cost={self.yesterday_cost:.2f};{warning:.2f};{critical:.2f};0",
-                f"yesterday_discounted_cost={self.yesterday_discounted_cost:.2f};{warning:.2f};{critical:.2f};0",
-                f"today_cost={self.today_cost:.2f};{warning:.2f};{critical:.2f};0",
-                f"today_discounted_cost={self.today_discounted_cost:.2f};{warning:.2f};{critical:.2f};0"
+                f"cost={self._cost:.2f};{warning:.2f};{critical:.2f};0",
+                f"discounted_cost={self._discounted_cost:.2f};{warning:.2f};{critical:.2f};0"
             ]
         else:
             perf_data_items = []
-        perf_data_items += [
-            f"total_cost={self.total_cost:.2f};{warning:.2f};{critical:.2f};0",
-            f"total_discounted_cost={self.total_discounted_cost:.2f};{warning:.2f};{critical:.2f};0",
-        ]
         perf_data = ' '.join(perf_data_items)
         print(f"{status.name}: {message} | {perf_data}")
         return exit(status.value)
@@ -191,12 +171,13 @@ def get_cost(args) -> CostApiItem:
         cost_api = CostApi(auth, api_log=api_log)
         today = datetime.now(timezone.utc).date()  # StackIT, ticket SSD-13595: UTC is used
         yesterday = today - timedelta(days=1)
+        two_days_ago = today - timedelta(days=2)
 
         result = cost_api.get_project_costs(
             args.customer_account_id,
             args.project_id,
-            from_date=yesterday,
-            to_date=today,
+            from_date=two_days_ago,
+            to_date=yesterday,
             granularity=CostApiGranularity.DAILY,
             depth=CostApiDepth.PROJECT,
             include_zero_costs=True,
