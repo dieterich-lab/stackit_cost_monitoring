@@ -42,12 +42,15 @@ class NagiosReporter:
         self._report_date = None
         self._cost = None
         self._discounted_cost = None
+        self._report_data_message = None
 
     def book_cost_item(self, cost_item: CostApiItem):
         if cost_item.reportData is None:
-            raise Exception(f"CostApi returned no reportData!")
+            self._report_data_message = 'CostApi returned no reportData'
+            return
         if len(cost_item.reportData) == 0:
-            raise Exception(f"CostApi returned empty reportData!")
+            self._report_data_message = 'CostApi returned empty reportData'
+            return
         for report_data in cost_item.reportData:
             if self._report_date is not None and report_data.timePeriod.start < self._report_date:
                 continue
@@ -65,6 +68,18 @@ class NagiosReporter:
             To detect pathological effects we should add the discounted costs to get an
             alarm before all our free budget has been used. By default we add the discounts.
         """
+        if self._cost is None:
+            if self._report_data_message is None:
+                return self._finish(
+                    NagiosExitCodes.UNKNOWN,
+                    'Internal error: Have no data and do not know why'
+                )
+            else:
+                return self._finish(
+                    NagiosExitCodes.OK,
+                    f"Zero costs ({self._report_data_message})"
+                )
+
         if not self.args.skip_discounts:
             cost += self._discounted_cost
         report_date_str = self._report_date.strftime('%Y-%m-%d')
