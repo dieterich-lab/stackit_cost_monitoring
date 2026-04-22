@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Main component."""
 
+import time
 import argparse
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -17,6 +18,7 @@ from stackit_cost_monitoring.cost_api import (
     CostApiItem,
 )
 from stackit_cost_monitoring.reporter import Reporter
+from prometheus_client import start_http_server, Gauge
 
 SECONDS_PER_DAY = 24 * 3600
 CENTS_PER_EURO = 100
@@ -24,6 +26,7 @@ CENTS_PER_EURO = 100
 DEFAULT_WARNING_EUROS = 10.0
 DEFAULT_CRITICAL_EUROS = 50.0
 DEFAULT_SA_KEY_JSON = Path.home() / ".stackit" / "sa-key.json"
+SLEEP = 5  # seconds
 
 
 class ParsedArguments(BaseModel):
@@ -50,12 +53,15 @@ def main() -> None:
                 reporter.book_cost_item(cost_item)
                 reporter.do_NagiosReport()
             case "prometheus":
-                cost_item = get_cost(args)
-                reporter = Reporter(args)
-                reporter.book_cost_item(cost_item)
-                print(reporter)
                 print("Starting prometheus exporter.")
-                sys_exit(0)
+                start_http_server(8000)
+                COST = Gauge("stackit_project_cost", "Costs for project in EUR")
+                while True:
+                    cost_item = get_cost(args)
+                    reporter = Reporter(args)
+                    reporter.book_cost_item(cost_item)
+                    reporter.prometheus_export(COST)
+                    time.sleep(SLEEP)
             case _:
                 print(f"Unknown mode {args.mode} !")
                 sys_exit(1)

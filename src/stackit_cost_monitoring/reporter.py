@@ -41,6 +41,42 @@ class Reporter:
         self._cost = cost_item.totalCharge / CENTS_PER_EURO
         self._discounted_cost = cost_item.totalDiscount / CENTS_PER_EURO
 
+    def prometheus_export(self, prometheus_metric) -> NoReturn:
+        """Export prometheus metrics."""
+        cost = self._cost
+        """
+            StackIt's answer to ticket SSD-13595:
+
+                The totalCharge value in the API response already includes all granted discounts.
+
+            To detect pathological effects we should add the discounted costs to get an
+            alarm before all our free budget has been used. By default we add the discounts.
+        """
+        if self._cost is None:
+            if self._report_data_message is None:
+                print("Internal error: Have no data and do not know why")
+            else:
+                print(f"Zero costs ({self._report_data_message})")
+
+        if not self.args.skip_discounts:
+            cost += self._discounted_cost
+        if self._report_date is None:
+            report_date_str = "(unknown date - no detailed report data)"
+        else:
+            data_str = self._report_date.strftime("%Y-%m-%d")
+            report_date_str = f"for {data_str}"
+
+        if cost > 0 and self._report_data_message is not None:
+            message = (
+                f"No detailed reportData ({self._report_data_message}) "
+                f"but non-zero costs {cost:.2f} EUR"
+            )
+        else:
+            message = f"Daily costs {cost:.2f} EUR {report_date_str}"
+
+        print(message)
+        prometheus_metric.set(cost)
+
     def do_NagiosReport(self) -> NoReturn:
         cost = self._cost
         """"
@@ -53,12 +89,12 @@ class Reporter:
         """
         if self._cost is None:
             if self._report_data_message is None:
-                return self._finish(
+                return self._nagios_finish(
                     NagiosExitCodes.UNKNOWN,
                     "Internal error: Have no data and do not know why",
                 )
             else:
-                return self._finish(
+                return self._nagios_finish(
                     NagiosExitCodes.OK, f"Zero costs ({self._report_data_message})"
                 )
 
@@ -86,9 +122,9 @@ class Reporter:
             exit_code = NagiosExitCodes.OK
             message = f"Daily costs {cost:.2f} EUR {report_date_str}"
 
-        return self._finish(exit_code, message)
+        return self._nagios_finish(exit_code, message)
 
-    def _finish(self, status: NagiosExitCodes, message: str) -> NoReturn:
+    def _nagios_finish(self, status: NagiosExitCodes, message: str) -> NoReturn:
         warning = self.args.warning
         critical = self.args.critical
         if self._cost is not None:
